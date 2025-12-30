@@ -1,0 +1,39 @@
+{
+  "welcome": "Welcome to HealHub!",
+  "subtitle": "Your healthcare companion app is ready.",
+  "features": {
+    "health_tracking": "Health Tracking",
+    "appointments": "Appointment Scheduling",
+    "medical_records": "Medical Records Access",
+    "virtual_consultations": "Virtual Consultations"
+  },
+  "language_select": {
+    "title": "Choose Your Language",
+    "subtitle": "Select your preferred language for the app",
+    "continue": "Continue",
+    "note": "You can change the language anytime from settings",
+    "selected": "Selected"
+  },
+  "languages": {
+    "english": "English",
+    "sinhala": "Sinhala",
+    "tamil": "Tamil"
+  },
+  "intro": {
+    "skip": "Skip",
+    "next": "Next",
+    "get_started": "Get Started",
+    "medicine_reminder": {
+      "title": "Medicine Reminder",
+      "description": "Never miss your medication with smart reminders and tracking system."
+    },
+    "ai_detection": {
+      "title": "AI Rash & Wound Detection",
+      "description": "Scan skin conditions with AI-powered detection for instant analysis."
+    },
+    "ambulance_find": {
+      "title": "Fast Ambulance Finder",
+      "description": "Find nearest ambulance instantly with real-time tracking and emergency contacts."
+    }
+  }
+}
