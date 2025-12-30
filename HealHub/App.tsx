@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, StatusBar, Animated } from 'react-native';
-import { I18nextProvider } from 'react-i18next';
+import { I18nextProvider, useTranslation } from 'react-i18next';
 import { ThemeProvider, useTheme } from './theme/ThemeContext';
 import HealHubLogo from './components/HealHubLogo';
 import LanguageSelectScreen from './screens/LanguageSelectScreen';
 import IntroScreen from './screens/IntroScreen';
 import MainScreen from './screens/MainScreen';
-import i18n, { initI18n, changeLanguage } from './i18n';
+import i18n, { initI18n } from './i18n';
 
+// Create a component that listens to i18n language changes
 function AppContent() {
+  const { i18n: i18nInstance } = useTranslation();
   const { colors, isDarkMode } = useTheme();
   const [appState, setAppState] = useState<'splash' | 'language' | 'intro' | 'main'>('splash');
   const [currentLanguage, setCurrentLanguage] = useState<string>('en');
@@ -16,11 +18,24 @@ function AppContent() {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
+  // Listen to language changes
+  useEffect(() => {
+    const handleLanguageChanged = (lng: string) => {
+      setCurrentLanguage(lng);
+    };
+
+    i18nInstance.on('languageChanged', handleLanguageChanged);
+    
+    return () => {
+      i18nInstance.off('languageChanged', handleLanguageChanged);
+    };
+  }, [i18nInstance]);
+
   useEffect(() => {
     const initializeApp = async () => {
       try {
         await initI18n();
-        const lang = i18n.language || 'en';
+        const lang = i18nInstance.language || 'en';
         setCurrentLanguage(lang);
       } catch (error) {
         console.error('Error initializing app:', error);
@@ -51,7 +66,7 @@ function AppContent() {
 
   const handleLanguageSelect = async (languageCode: string) => {
     try {
-      await changeLanguage(languageCode);
+      await i18nInstance.changeLanguage(languageCode);
       setCurrentLanguage(languageCode);
       setAppState('intro');
     } catch (error) {
