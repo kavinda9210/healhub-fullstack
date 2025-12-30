@@ -9,6 +9,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from '../theme/ThemeContext';
 
 interface LanguageOption {
   id: string;
@@ -48,7 +49,10 @@ interface LanguageSelectScreenProps {
 
 const LanguageSelectScreen: React.FC<LanguageSelectScreenProps> = ({ onLanguageSelect }) => {
   const { t } = useTranslation();
+  const { colors, isDarkMode } = useTheme();
   const [selectedLanguage, setSelectedLanguage] = useState<string>('en');
+
+  const styles = createStyles(colors);
 
   const handleLanguageSelect = (languageCode: string) => {
     setSelectedLanguage(languageCode);
@@ -60,7 +64,10 @@ const LanguageSelectScreen: React.FC<LanguageSelectScreenProps> = ({ onLanguageS
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+      <StatusBar 
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.background}
+      />
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.header}>
           <Text style={styles.title}>{t('language_select.title')}</Text>
@@ -115,10 +122,10 @@ const LanguageSelectScreen: React.FC<LanguageSelectScreenProps> = ({ onLanguageS
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.background,
   },
   scrollContainer: {
     flexGrow: 1,
@@ -132,13 +139,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#2E8B57',
+    color: colors.primary,
     marginBottom: 10,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
     maxWidth: 300,
@@ -147,22 +154,22 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   languageCard: {
-    backgroundColor: 'white',
+    backgroundColor: colors.surface,
     borderRadius: 15,
     padding: 20,
     marginBottom: 15,
     borderWidth: 2,
     borderColor: 'transparent',
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
   },
   languageCardSelected: {
-    borderColor: '#2E8B57',
-    backgroundColor: '#F0FFF4',
-    shadowColor: '#2E8B57',
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+    shadowColor: colors.primary,
     shadowOpacity: 0.1,
     elevation: 3,
   },
@@ -180,24 +187,24 @@ const styles = StyleSheet.create({
   languageName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
+    color: colors.text,
     marginBottom: 4,
   },
   languageNativeName: {
     fontSize: 16,
-    color: '#666',
+    color: colors.textSecondary,
   },
   selectedIndicator: {
     marginTop: 15,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    borderTopColor: colors.divider,
     alignItems: 'center',
   },
   selectedText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#2E8B57',
+    color: colors.primary,
   },
   footer: {
     alignItems: 'center',
@@ -205,7 +212,7 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   confirmButton: {
-    backgroundColor: '#2E8B57',
+    backgroundColor: colors.primary,
     borderRadius: 25,
     paddingVertical: 16,
     paddingHorizontal: 40,
@@ -214,20 +221,20 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 300,
     marginBottom: 20,
-    shadowColor: '#2E8B57',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
   },
   confirmButtonText: {
-    color: 'white',
+    color: colors.surface,
     fontSize: 18,
     fontWeight: 'bold',
   },
   note: {
     fontSize: 14,
-    color: '#888',
+    color: colors.textTertiary,
     textAlign: 'center',
     lineHeight: 20,
     maxWidth: 300,

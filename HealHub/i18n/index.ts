@@ -6,7 +6,7 @@ import en from './en.json';
 import si from './si.json';
 import ta from './ta.json';
 
-// Initialize i18n
+// Simple initialization
 export const initI18n = async (): Promise<void> => {
   i18n
     .use(initReactI18next)
@@ -16,7 +16,7 @@ export const initI18n = async (): Promise<void> => {
         si: { translation: si },
         ta: { translation: ta },
       },
-      lng: 'en',
+      lng: 'en', // Default language
       fallbackLng: 'en',
       interpolation: {
         escapeValue: false,

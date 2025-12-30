@@ -23,6 +23,7 @@
     "skip": "Skip",
     "next": "Next",
     "get_started": "Get Started",
+    "features": "App Features",
     "medicine_reminder": {
       "title": "Medicine Reminder",
       "description": "Never miss your medication with smart reminders and tracking system."
@@ -35,5 +36,20 @@
       "title": "Fast Ambulance Finder",
       "description": "Find nearest ambulance instantly with real-time tracking and emergency contacts."
     }
+  },
+  "theme": {
+    "title": "Theme Settings",
+    "subtitle": "Choose your preferred theme mode",
+    "close": "Close",
+    "light": "Light Mode",
+    "light_description": "Always use light colors",
+    "dark": "Dark Mode",
+    "dark_description": "Always use dark colors",
+    "auto": "Auto",
+    "auto_description": "Follow system settings",
+    "preview": "Preview",
+    "preview_text": "This is how text will appear in the selected theme.",
+    "preview_box": "Sample Component",
+    "settings": "Settings"
   }
 }

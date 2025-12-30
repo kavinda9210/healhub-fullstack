@@ -11,6 +11,7 @@ import {
   Animated,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from '../theme/ThemeContext';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -29,6 +30,7 @@ interface IntroScreenProps {
 
 const IntroScreen: React.FC<IntroScreenProps> = ({ onComplete }) => {
   const { t } = useTranslation();
+  const { colors, isDarkMode } = useTheme();
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
   const slidesRef = useRef<FlatList>(null);
@@ -40,7 +42,7 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onComplete }) => {
       descriptionKey: 'intro.medicine_reminder.description',
       icon: '💊',
       color: '#4A90E2',
-      backgroundColor: '#E8F2FF',
+      backgroundColor: isDarkMode ? '#1A237E' : '#E8F2FF',
     },
     {
       id: '2',
@@ -48,7 +50,7 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onComplete }) => {
       descriptionKey: 'intro.ai_detection.description',
       icon: '🤖',
       color: '#FF6B6B',
-      backgroundColor: '#FFEEEE',
+      backgroundColor: isDarkMode ? '#B71C1C' : '#FFEEEE',
     },
     {
       id: '3',
@@ -56,9 +58,11 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onComplete }) => {
       descriptionKey: 'intro.ambulance_find.description',
       icon: '🚑',
       color: '#2E8B57',
-      backgroundColor: '#E8F5E9',
+      backgroundColor: isDarkMode ? '#1B5E20' : '#E8F5E9',
     },
   ];
+
+  const styles = createStyles(colors);
 
   const viewableItemsChanged = useRef(({ viewableItems }: any) => {
     if (viewableItems && viewableItems.length > 0) {
@@ -143,14 +147,15 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onComplete }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+      <StatusBar 
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.background}
+      />
       
-      {/* Skip Button */}
       <TouchableOpacity style={styles.skipButton} onPress={skipIntro}>
         <Text style={styles.skipText}>{t('intro.skip', 'Skip')}</Text>
       </TouchableOpacity>
 
-      {/* Slides */}
       <FlatList
         data={slides}
         renderItem={renderItem}
@@ -169,10 +174,8 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onComplete }) => {
         ref={slidesRef}
       />
 
-      {/* Pagination */}
       {renderPagination()}
 
-      {/* Next Button */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={[styles.nextButton, { backgroundColor: slides[currentIndex].color }]}
@@ -190,10 +193,10 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onComplete }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.background,
   },
   skipButton: {
     position: 'absolute',
@@ -202,12 +205,12 @@ const styles = StyleSheet.create({
     zIndex: 10,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: 'rgba(0,0,0,0.1)',
+    backgroundColor: colors.surfaceVariant,
     borderRadius: 20,
   },
   skipText: {
     fontSize: 16,
-    color: '#666',
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   slide: {
@@ -235,7 +238,7 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 18,
-    color: '#555',
+    color: colors.text,
     textAlign: 'center',
     lineHeight: 28,
     paddingHorizontal: 20,
@@ -273,9 +276,9 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 5,
   },
