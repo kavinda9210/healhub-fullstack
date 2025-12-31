@@ -12,6 +12,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../theme/ThemeContext';
 import ThemeToggle from '../theme/ThemeToggle';
+import { useAuth } from '../components/AuthContext';
 import ThemeSettings from '../theme/ThemeSettings';
 import { changeLanguage } from '../i18n';
 
@@ -27,6 +28,7 @@ const MainScreen: React.FC<MainScreenProps> = ({ currentLanguage, onLanguageChan
   const [showThemeModal, setShowThemeModal] = useState(false);
 
   const styles = createStyles(colors, isDarkMode);
+  const auth = useAuth() as any;
 
   const LanguageModal = () => (
     <Modal
@@ -110,6 +112,17 @@ const MainScreen: React.FC<MainScreenProps> = ({ currentLanguage, onLanguageChan
         <Text style={styles.headerTitle}>HealHub</Text>
         <View style={styles.headerActions}>
           <ThemeToggle />
+          <TouchableOpacity
+            style={[styles.languageButton]}
+            onPress={() => {
+              if (auth.isAuthenticated) auth.openDashboard(auth.user?.role);
+              else auth.openAuth('login');
+            }}
+          >
+            <Text style={styles.languageButtonText}>
+              {auth.isAuthenticated ? 'Dashboard' : 'Sign in'}
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.languageButton}
             onPress={() => setShowLanguageModal(true)}

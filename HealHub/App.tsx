@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, StatusBar, Animated } from 'react-native';
 import { I18nextProvider, useTranslation } from 'react-i18next';
 import { ThemeProvider, useTheme } from './theme/ThemeContext';
+import { AuthProvider } from './components/AuthContext';
+import AuthStack from './screens/AuthStack';
 import HealHubLogo from './components/HealHubLogo';
 import LanguageSelectScreen from './screens/LanguageSelectScreen';
 import IntroScreen from './screens/IntroScreen';
@@ -141,7 +143,10 @@ function App() {
   return (
     <I18nextProvider i18n={i18n}>
       <ThemeProvider>
-        <AppContent />
+        <AuthProvider>
+          <AppContent />
+          <AuthStack />
+        </AuthProvider>
       </ThemeProvider>
     </I18nextProvider>
   );
