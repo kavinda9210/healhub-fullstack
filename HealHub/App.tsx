@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, StatusBar, Animated } from 'react-native';
 import { I18nextProvider, useTranslation } from 'react-i18next';
 import { ThemeProvider, useTheme } from './theme/ThemeContext';
-import { AuthProvider } from './components/AuthContext';
-import AuthStack from './screens/AuthStack';
 import HealHubLogo from './components/HealHubLogo';
 import LanguageSelectScreen from './screens/LanguageSelectScreen';
+import { AuthProvider } from './contexts/AuthContext';
 import IntroScreen from './screens/IntroScreen';
 import MainScreen from './screens/MainScreen';
+import Navigation from './navigation';
 import i18n, { initI18n } from './i18n';
 
 // Create a component that listens to i18n language changes
@@ -144,8 +144,7 @@ function App() {
     <I18nextProvider i18n={i18n}>
       <ThemeProvider>
         <AuthProvider>
-          <AppContent />
-          <AuthStack />
+          <Navigation />
         </AuthProvider>
       </ThemeProvider>
     </I18nextProvider>
