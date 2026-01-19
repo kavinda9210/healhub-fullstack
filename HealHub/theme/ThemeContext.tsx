@@ -45,10 +45,17 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const toggleTheme = () => {
-    const newMode = themeMode === 'light' ? 'dark' : 'light';
-    setThemeMode(newMode);
-    saveTheme(newMode);
-  };
+  const newMode =
+    themeMode === 'light'
+      ? 'dark'
+      : themeMode === 'dark'
+      ? 'light'
+      : 'auto';
+
+  setThemeMode(newMode);
+  saveTheme(newMode);
+};
+
 
   const handleSetThemeMode = (mode: ThemeMode) => {
     setThemeMode(mode);

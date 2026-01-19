@@ -14,6 +14,7 @@ class Config:
     SUPABASE_URL = os.environ.get('SUPABASE_URL')
     SUPABASE_ANON_KEY = os.environ.get('SUPABASE_ANON_KEY')
     SUPABASE_SERVICE_ROLE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY')
+    SUPABASE_PROFILE_BUCKET = os.environ.get('SUPABASE_PROFILE_BUCKET', 'profile-images')
     
     # Email
     EMAIL_HOST = os.environ.get('EMAIL_HOST')
@@ -24,6 +25,9 @@ class Config:
     # App
     APP_NAME = os.environ.get('APP_NAME', 'HealHub')
     APP_URL = os.environ.get('APP_URL', 'http://localhost:3000')
+
+    # Validation
+    MIN_USER_AGE = int(os.environ.get('MIN_USER_AGE', 13))
     
     # Rate limiting
     RATELIMIT_STORAGE_URL = 'memory://'

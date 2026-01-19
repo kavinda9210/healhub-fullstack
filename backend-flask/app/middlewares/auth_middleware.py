@@ -29,6 +29,15 @@ def auth_required(f):
                     'message': 'User no longer exists'
                 }), 401
             
+            # Check session nonce to validate token hasn't been invalidated by logout-all
+            token_nonce = decoded.get('session_nonce', 0)
+            user_nonce = user.get('session_nonce', 0)
+            if token_nonce != user_nonce:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Session has been invalidated. Please login again.'
+                }), 401
+            
             if not user.get('is_active'):
                 return jsonify({
                     'status': 'error',
@@ -102,7 +111,8 @@ def ambulance_staff_required(f):
     """Middleware to check if user is ambulance staff"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not hasattr(request, 'user') or request.user['role'] != 'ambulance_staff':
+        user_role = request.user['role'] if hasattr(request, 'user') else None
+        if not user_role or user_role not in ['ambulance_staff', 'ambulance']:
             return jsonify({
                 'status': 'error',
                 'message': 'Access denied. Ambulance staff only area'

@@ -97,6 +97,28 @@ backend-flask/
    
    The API will be available at `http://localhost:5000`
 
+## React API Checker (Optional)
+
+A small React UI is included to manually test the backend endpoints.
+
+1. Start the Flask backend:
+  ```bash
+  python run.py
+  ```
+
+2. Start the React dev server:
+  ```bash
+  cd frontend-react
+  npm install
+  npm run dev
+  ```
+
+3. Open `http://localhost:5173`.
+
+Notes:
+- The React dev server proxies `/api` to `http://localhost:5000` (see `frontend-react/vite.config.js`), so you can keep the API base URL as `/api`.
+- If you want to call the backend directly, set `VITE_API_BASE_URL=http://localhost:5000/api` in `frontend-react/.env`.
+
 ## API Endpoints
 
 ### Authentication
@@ -106,10 +128,10 @@ backend-flask/
 - **Body:**
   ```json
   {
-    "firstName": "John",
-    "lastName": "Doe",
-    "email": "john@example.com",
-    "phone": "+1234567890",
+    "firstName": "Nimal",
+    "lastName": "Shantha",
+    "email": "nimalshantha@gmail.com",
+    "phone": "0789254555",
     "password": "SecurePass123",
     "confirmPassword": "SecurePass123",
     "dateOfBirth": "1990-01-15",

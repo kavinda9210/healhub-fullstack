@@ -23,7 +23,7 @@ interface InputFieldProps extends TextInputProps {
 const InputField: React.FC<InputFieldProps> = ({
   label,
   error,
-  secureTextEntry,
+  secureTextEntry = false, // Default to false if undefined
   icon,
   rightIcon,
   onRightIconPress,
@@ -32,13 +32,22 @@ const InputField: React.FC<InputFieldProps> = ({
 }) => {
   const { colors } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
-  const [showPassword, setShowPassword] = useState(!secureTextEntry);
+  
+  // DEBUG: Log what we receive
+  console.log('🔍 InputField DEBUG - secureTextEntry:', secureTextEntry, 'type:', typeof secureTextEntry, 'isBoolean?', typeof secureTextEntry === 'boolean');
+  
+  // Ensure secureTextEntry is boolean
+  const isSecure = Boolean(secureTextEntry);
+  const [showPassword, setShowPassword] = useState(!isSecure);
 
   const styles = createStyles(colors);
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
+
+  // DEBUG: Log what we pass to TextInput
+  console.log('🔍 InputField passing to TextInput - secureTextEntry:', isSecure && !showPassword);
 
   return (
     <View style={styles.container}>
@@ -66,13 +75,13 @@ const InputField: React.FC<InputFieldProps> = ({
         <TextInput
           style={[styles.input, icon && styles.inputWithIcon]}
           placeholderTextColor={colors.textSecondary}
-          secureTextEntry={secureTextEntry && !showPassword}
+          secureTextEntry={isSecure && !showPassword}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           {...props}
         />
         
-        {secureTextEntry && (
+        {isSecure && (
           <TouchableOpacity
             onPress={togglePasswordVisibility}
             style={styles.rightIconButton}
@@ -85,7 +94,7 @@ const InputField: React.FC<InputFieldProps> = ({
           </TouchableOpacity>
         )}
         
-        {rightIcon && !secureTextEntry && (
+        {rightIcon && !isSecure && (
           <TouchableOpacity
             onPress={onRightIconPress}
             style={styles.rightIconButton}

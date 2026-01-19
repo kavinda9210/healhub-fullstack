@@ -121,7 +121,7 @@ const LoginScreen = () => {
                 value={password}
                 onChangeText={setPassword}
                 placeholder={t('login.passwordPlaceholder', 'Enter your password')}
-                secureTextEntry={!showPassword}
+                secureTextEntry={!showPassword} // CHANGED: Removed Boolean() wrapper
                 error={errors.password}
                 required
                 icon="lock"
@@ -142,7 +142,7 @@ const LoginScreen = () => {
                 title={t('login.loginButton', 'Login')}
                 onPress={handleLogin}
                 loading={isLoading}
-                disabled={!identifier || !password}
+                disabled={Boolean(!identifier || !password)}
                 style={styles.loginButton}
               />
 

@@ -31,7 +31,7 @@ const MainScreen: React.FC<MainScreenProps> = ({ currentLanguage, onLanguageChan
 
   const LanguageModal = () => (
     <Modal
-      visible={showLanguageModal}
+      visible={Boolean(showLanguageModal)}
       transparent
       animationType="slide"
       onRequestClose={() => setShowLanguageModal(false)}
@@ -100,7 +100,7 @@ const MainScreen: React.FC<MainScreenProps> = ({ currentLanguage, onLanguageChan
       <LanguageModal />
       
       <Modal
-        visible={showThemeModal}
+        visible={Boolean(showThemeModal)}
         animationType="slide"
         onRequestClose={() => setShowThemeModal(false)}
       >

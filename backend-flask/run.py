@@ -15,9 +15,9 @@ config = get_config()
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     
-    print(f'🚀 Server running on port {port}')
-    print(f'📧 Email: {"Configured" if config.EMAIL_USER else "Not configured"}')
-    print(f'🔐 Supabase: {"Connected" if config.SUPABASE_URL else "Not connected"}')
+    print(f'Server running on port {port}')
+    print(f'Email: {"Configured" if config.EMAIL_USER else "Not configured"}')
+    print(f'Supabase: {"Connected" if config.SUPABASE_URL else "Not connected"}')
     
     app.run(
         debug=config.DEBUG,
