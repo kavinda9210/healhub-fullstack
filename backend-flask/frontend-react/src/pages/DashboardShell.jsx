@@ -5,7 +5,7 @@ import { logout } from '../lib/auth'
 import { apiRequest } from '../lib/api'
 import ApiResult from '../components/ApiResult'
 
-export default function DashboardShell({ title, requiredRole, dashboardPath }) {
+export default function DashboardShell({ title, requiredRole, dashboardPath, children }) {
   const navigate = useNavigate()
   const [user] = useState(() => getUser())
   const [token] = useState(() => getToken())
@@ -73,8 +73,9 @@ export default function DashboardShell({ title, requiredRole, dashboardPath }) {
         ) : (
           <p className="muted">Backend: GET {dashboardPath}</p>
         )}
-
         <ApiResult result={result} error={error} />
+
+        {children}
       </div>
     </div>
   )

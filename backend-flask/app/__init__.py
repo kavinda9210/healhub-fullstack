@@ -11,6 +11,8 @@ from app.routes.other_routes import (
     admin_bp, patient_bp, doctor_bp, ambulance_bp,
     appointment_bp, prescription_bp, test_bp, reminder_bp, user_bp
 )
+from app.services.ai_service import ai_service
+import os
 
 config = get_config()
 
@@ -66,6 +68,27 @@ def create_app(config_class=None):
             'status': 'error',
             'message': f'Route {error.description} not found'
         }), 404
+
+    # Optionally start model training or ensure model is loaded
+    try:
+        auto_train = os.environ.get('AUTO_TRAIN_MODEL', 'false').lower() in ('1', 'true', 'yes')
+        min_acc = float(os.environ.get('REQUIRE_MIN_ACCURACY', '0'))
+        if auto_train:
+            # If a minimum accuracy is required, run blocking to ensure it
+            if min_acc > 0:
+                ai_service.train_and_evaluate(epochs=int(os.environ.get('TRAIN_EPOCHS', 10)), blocking=True, min_accuracy=min_acc)
+            else:
+                # background train
+                ai_service.train_and_evaluate(epochs=int(os.environ.get('TRAIN_EPOCHS', 10)), blocking=False)
+        else:
+            # lazy-load model now (non-blocking) so detection may use stub until model is ready
+            try:
+                ai_service._load_model()
+            except Exception:
+                pass
+    except Exception as e:
+        # Fail early if model training enforcement fails
+        print('AI service startup error:', e)
     
     return app
 

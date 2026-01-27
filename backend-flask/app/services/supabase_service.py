@@ -7,10 +7,24 @@ config = get_config()
 
 class SupabaseService:
     def __init__(self):
-        self.client: Client = create_client(
-            config.SUPABASE_URL,
-            config.SUPABASE_SERVICE_ROLE_KEY
-        )
+        # Validate configuration early to provide actionable errors
+        if not config.SUPABASE_URL:
+            raise Exception('SUPABASE_URL is not set. Set the SUPABASE_URL environment variable to your Supabase project URL.')
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(config.SUPABASE_URL)
+            host = parsed.hostname or config.SUPABASE_URL
+        except Exception:
+            host = config.SUPABASE_URL
+
+        try:
+            self.client: Client = create_client(
+                config.SUPABASE_URL,
+                config.SUPABASE_SERVICE_ROLE_KEY
+            )
+        except Exception as e:
+            # Provide a clearer error when DNS resolution or network fails
+            raise Exception(f"Error creating Supabase client (host={host}): {str(e)}")
 
     def list_users(self, role=None, limit=100, offset=0):
         """List users, optionally filtered by role."""
@@ -423,6 +437,158 @@ class SupabaseService:
             return response.data if response.data else []
         except Exception as e:
             raise Exception(f'Error fetching users: {str(e)}')
+
+    # --- Appointments / Reminders helpers ---
+    def find_doctors_by_specialization(self, specialization: str, limit: int = 20):
+        """Return doctors matching a specialization (case-insensitive) and that are marked available."""
+        try:
+            resp = (
+                self.client.table('doctors')
+                .select('*')
+                .ilike('specialization', f'%{specialization}%')
+                .eq('is_available', True)
+                .limit(limit)
+                .execute()
+            )
+            return resp.data if resp.data else []
+        except Exception as e:
+            raise Exception(f'Error finding doctors: {str(e)}')
+
+    def create_appointment(self, appointment: dict):
+        """Insert an appointment record and return it."""
+        try:
+            resp = self.client.table('appointments').insert(appointment).execute()
+            return resp.data[0] if resp.data else None
+        except Exception as e:
+            raise Exception(f'Error creating appointment: {str(e)}')
+
+    def create_reminder(self, reminder: dict):
+        """Create a reminder (e.g., for medicine or appointment)."""
+        try:
+            resp = self.client.table('reminders').insert(reminder).execute()
+            return resp.data[0] if resp.data else None
+        except Exception as e:
+            raise Exception(f'Error creating reminder: {str(e)}')
+
+    def get_reminders_for_user(self, user_id: str):
+        """List reminders for a user."""
+        try:
+            resp = self.client.table('reminders').select('*').eq('user_id', user_id).execute()
+            return resp.data if resp.data else []
+        except Exception as e:
+            raise Exception(f'Error listing reminders: {str(e)}')
+
+    def get_appointments_for_doctor_on_date(self, doctor_id: str, date_str: str):
+        """Return appointments for a doctor on a specific date (ISO date prefix)."""
+        try:
+            # Match appointments whose appointment_date starts with the date string
+            resp = (
+                self.client.table('appointments')
+                .select('*')
+                .eq('doctor_id', doctor_id)
+                .like('appointment_date', f'{date_str}%')
+                .execute()
+            )
+            return resp.data if resp.data else []
+        except Exception as e:
+            raise Exception(f'Error fetching appointments: {str(e)}')
+
+    def get_available_slots(self, doctor_id: str, date_str: str):
+        """Compute available time slots for a doctor on a given date (YYYY-MM-DD).
+
+        Uses doctor_availability rows (explicit available_date) if present, otherwise uses
+        doctor's daily available_from/available_to and available days (weekday).
+        Returns list of ISO datetime strings for slot start times.
+        """
+        from datetime import datetime, timedelta
+
+        try:
+            # load doctor profile
+            resp = self.client.table('doctors').select('*').eq('id', doctor_id).single().execute()
+            doctor = resp.data if resp.data else None
+
+            # try to find explicit availability rows for that date
+            avail_resp = (
+                self.client.table('doctor_availability')
+                .select('*')
+                .eq('doctor_id', doctor_id)
+                .eq('available_date', date_str)
+                .execute()
+            )
+            avail_rows = avail_resp.data if avail_resp and avail_resp.data else []
+
+            slots = []
+
+            def build_slots(start_time, end_time, slot_min):
+                nonlocal slots
+                fmt = '%H:%M:%S'
+                start_dt = datetime.strptime(f"{date_str} {start_time}", '%Y-%m-%d %H:%M:%S')
+                end_dt = datetime.strptime(f"{date_str} {end_time}", '%Y-%m-%d %H:%M:%S')
+                cur = start_dt
+                delta = timedelta(minutes=int(slot_min))
+                while cur + delta <= end_dt:
+                    slots.append(cur.isoformat())
+                    cur += delta
+
+            if avail_rows:
+                # use the first (the app upserts single row)
+                a = avail_rows[0]
+                slot_min = a.get('slot_duration_minutes') or 30
+                build_slots(a.get('start_time') or a.get('available_from') or doctor.get('available_from'),
+                            a.get('end_time') or a.get('available_to') or doctor.get('available_to'),
+                            slot_min)
+            else:
+                # fallback to weekly days
+                # check if doctor is available that weekday
+                weekday = datetime.fromisoformat(date_str).weekday()
+                days_resp = self.client.table('doctor_available_days').select('day_of_week, start_time, end_time').eq('doctor_id', doctor_id).execute()
+                days = days_resp.data if days_resp and days_resp.data else []
+                matched = [d for d in days if int(d.get('day_of_week')) == weekday]
+                if matched:
+                    # use first matched row
+                    m = matched[0]
+                    slot_min = doctor.get('slot_duration_minutes') or 30
+                    build_slots(m.get('start_time') or doctor.get('available_from'), m.get('end_time') or doctor.get('available_to'), slot_min)
+                else:
+                    # No available days -> empty
+                    slots = []
+
+            # remove slots that are already booked
+            appts = self.get_appointments_for_doctor_on_date(doctor_id, date_str)
+            booked_starts = set()
+            for a in appts:
+                ad = a.get('appointment_date')
+                if ad:
+                    # normalize prefix
+                    booked_starts.add(ad)
+
+            free = [s for s in slots if s not in booked_starts]
+            return free
+        except Exception as e:
+            raise Exception(f'Error computing slots: {str(e)}')
+
+    def get_due_reminders(self):
+        """Return reminders that are scheduled up to now and not yet sent."""
+        try:
+            from datetime import datetime, timezone
+            now = datetime.now(timezone.utc).isoformat()
+            resp = (
+                self.client.table('reminders')
+                .select('*')
+                .eq('is_sent', False)
+                .lte('scheduled_at', now)
+                .execute()
+            )
+            return resp.data if resp and resp.data else []
+        except Exception as e:
+            raise Exception(f'Error fetching due reminders: {str(e)}')
+
+    def mark_reminder_sent(self, reminder_id: str):
+        try:
+            resp = self.client.table('reminders').update({'is_sent': True}).eq('id', reminder_id).execute()
+            return resp.data[0] if resp and resp.data else None
+        except Exception as e:
+            raise Exception(f'Error marking reminder sent: {str(e)}')
 
     # Storage operations
     def upload_user_profile_image(self, user_id: str, filename: str, content_type: str, data: bytes) -> str:
