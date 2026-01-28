@@ -1,15 +1,17 @@
 import React, { useContext, useEffect, useState } from 'react'
 import AuthContext from '../AuthContext'
 import { getProfile, uploadProfilePicture } from '../api'
+import { useAlert } from '../AlertContext'
 
 export default function Profile(){
   const { token, setUser } = useContext(AuthContext)
   const [profile, setProfile] = useState(null)
   const [file, setFile] = useState(null)
 
+  const { showAlert } = useAlert()
   useEffect(()=>{
     if(!token) return
-    getProfile(token).then(r=>{ if(r && r.data) setProfile(r.data) })
+    getProfile(token).then(r=>{ if(r && r.data) setProfile(r.data); else if(r && r.status === 'error') showAlert(r.message || 'Failed to load profile', 'error') })
   },[token])
 
   async function upload(e){
@@ -17,8 +19,8 @@ export default function Profile(){
     if(!file) return
     const res = await uploadProfilePicture(token, file)
     if(res && res.status === 'success'){
-      alert('Uploaded')
-    } else alert(res.message||'Upload failed')
+      showAlert('Uploaded', 'success')
+    } else showAlert(res.message||'Upload failed', 'error')
   }
 
   if(!profile) return <div className="container">Loading...</div>

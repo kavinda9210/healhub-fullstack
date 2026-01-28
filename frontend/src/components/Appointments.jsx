@@ -1,6 +1,7 @@
 import React, { useState, useContext } from 'react'
 import AuthContext from '../AuthContext'
 import { getSlots, bookAppointment } from '../api'
+import { useAlert } from '../AlertContext'
 
 export default function Appointments(){
   const { token } = useContext(AuthContext)
@@ -9,15 +10,17 @@ export default function Appointments(){
   const [slots, setSlots] = useState([])
   const [message, setMessage] = useState('')
 
+  const { showAlert } = useAlert()
   async function loadSlots(){
     const res = await getSlots(token, doctorId, date)
+    if (res && res.status === 'error') { showAlert(res.message || 'Failed to load slots','error'); setSlots([]); return }
     setSlots(res.data || [])
   }
 
   async function book(slot){
     const res = await bookAppointment(token, { doctorId: Number(doctorId), appointmentDate: slot, reason: 'Booking from UI' })
-    if(res && res.status === 'success') setMessage('Booked')
-    else setMessage(res.message || 'Failed')
+    if(res && res.status === 'success') { setMessage('Booked'); showAlert('Appointment booked','success') }
+    else { const m = res && (res.message || 'Failed'); setMessage(m); showAlert(m,'error') }
   }
 
   return (

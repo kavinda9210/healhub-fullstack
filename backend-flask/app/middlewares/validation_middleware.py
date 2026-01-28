@@ -62,6 +62,11 @@ def validate_register(f):
             errors.append('Passwords do not match')
         
         if errors:
+            # Log validation errors and payload for easier debugging in development
+            try:
+                print('Register validation failed:', errors, 'payload:', data)
+            except Exception:
+                pass
             return jsonify({
                 'status': 'error',
                 'message': 'Validation failed',

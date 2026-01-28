@@ -44,8 +44,10 @@ def auth_required(f):
                     'message': 'User account is deactivated'
                 }), 401
             
-            # Store user info in request context
+            # Store user info in request context. Provide both `id` and `user_id` keys
+            # because some handlers expect `user.get('id')` while others use `user_id`.
             request.user = {
+                'id': user['id'],
                 'user_id': user['id'],
                 'role': user.get('role'),
                 'email': user.get('email'),

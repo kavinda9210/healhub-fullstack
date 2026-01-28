@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react'
 import AuthContext from '../AuthContext'
 import { listUsers, createUser } from '../api'
+import { useAlert } from '../AlertContext'
 
 export default function AdminUsers(){
   const { token } = useContext(AuthContext)
@@ -9,12 +10,14 @@ export default function AdminUsers(){
   const [name, setName] = useState('')
   const [role, setRole] = useState('patient')
 
-  useEffect(()=>{ if(token) listUsers(token).then(r=>setUsers(r.data||[])) },[token])
+  const { showAlert } = useAlert()
+  useEffect(()=>{ if(token) listUsers(token).then(r=>{ if(r && r.status === 'error') showAlert(r.message,'error'); else setUsers(r.data||[]) }) },[token])
 
   async function submit(e){
     e.preventDefault()
     const res = await createUser(token, { email, name, role })
-    if(res && res.status === 'success') setUsers(prev=>[res.data, ...prev])
+    if(res && res.status === 'success') { setUsers(prev=>[res.data, ...prev]); showAlert('User created','success') }
+    else { const m = res && (res.message || (res.errors && res.errors.join(', '))) || 'Create failed'; showAlert(m,'error') }
   }
 
   return (

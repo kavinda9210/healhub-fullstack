@@ -1,6 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react'
 import AuthContext from '../AuthContext'
 import { listReminders, createReminder } from '../api'
+import { useAlert } from '../AlertContext'
 
 export default function Reminders(){
   const { token } = useContext(AuthContext)
@@ -8,12 +9,14 @@ export default function Reminders(){
   const [title, setTitle] = useState('')
   const [message, setMessage] = useState('')
 
-  useEffect(()=>{ if(token) listReminders(token).then(r=>setReminders(r.data||[])) },[token])
+  const { showAlert } = useAlert()
+  useEffect(()=>{ if(token) listReminders(token).then(r=>{ if(r && r.status === 'error') showAlert(r.message,'error'); else setReminders(r.data||[]) }) },[token])
 
   async function submit(e){
     e.preventDefault()
     const res = await createReminder(token, { title, message, scheduled_at: new Date().toISOString() })
-    if(res && res.status === 'success') setReminders(prev=>[res.data, ...prev])
+    if(res && res.status === 'success') { setReminders(prev=>[res.data, ...prev]); showAlert('Reminder created','success') }
+    else showAlert(res.message || 'Create failed','error')
   }
 
   return (

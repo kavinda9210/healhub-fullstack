@@ -7,8 +7,13 @@ class Config:
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET', 'jwt-secret-key-change-in-production')
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=7)
     
-    # CORS
-    CORS_ORIGINS = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+    # CORS: allow comma-separated list via FRONTEND_URL or FRONTEND_URLS, default to dev ports
+    _frontends = os.environ.get('FRONTEND_URLS') or os.environ.get('FRONTEND_URL') or 'http://localhost:5173'
+    # Support comma-separated values
+    if ',' in _frontends:
+        CORS_ORIGINS = [u.strip() for u in _frontends.split(',') if u.strip()]
+    else:
+        CORS_ORIGINS = _frontends
     
     # Supabase
     SUPABASE_URL = os.environ.get('SUPABASE_URL')

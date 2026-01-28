@@ -2,6 +2,7 @@ import React, { useState, useContext } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AuthContext from '../AuthContext'
 import { login } from '../api'
+import { useAlert } from '../AlertContext'
 
 export default function Login(){
   const [email, setEmail] = useState('')
@@ -10,15 +11,20 @@ export default function Login(){
   const { setToken } = useContext(AuthContext)
   const navigate = useNavigate()
 
+  const { showAlert } = useAlert()
   async function submit(e){
     e.preventDefault()
     setError(null)
-    const res = await login({ email, password })
-    if (res && res.data && res.data.access_token) {
-      setToken(res.data.access_token)
+    if(!email || !password){ setError('Email and password required'); showAlert('Email and password required','error'); return }
+    const res = await login({ identifier: email, password })
+    if (res && res.data && res.data.token) {
+      setToken(res.data.token)
+      showAlert('Logged in', 'success')
       navigate('/profile')
     } else {
-      setError(res.message || 'Login failed')
+      const msg = res && (res.message || (res.errors && res.errors.join(', '))) || 'Login failed'
+      setError(msg)
+      showAlert(msg, 'error')
     }
   }
 

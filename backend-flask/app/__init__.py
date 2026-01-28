@@ -25,8 +25,17 @@ def create_app(config_class=None):
         config_class = config
     app.config.from_object(config_class)
     
-    # CORS setup
-    CORS(app, origins=config.CORS_ORIGINS, supports_credentials=True)
+    # CORS setup - ensure origins is a list and apply to API routes
+    origins = config.CORS_ORIGINS
+    if isinstance(origins, str):
+        origins = [origins]
+
+    # In development, allow all origins as a dev fallback to avoid CORS blocking
+    # (safe for local development only). In production, use configured origins.
+    if getattr(config, 'DEBUG', False):
+        CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+    else:
+        CORS(app, resources={r"/api/*": {"origins": origins}}, supports_credentials=True)
     
     # Rate limiting
     limiter = Limiter(
