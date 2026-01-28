@@ -278,6 +278,72 @@ def ai_status():
         return jsonify({'status': 'error', 'message': str(e)}), 400
 
 
+# Raw probabilities endpoint for debugging: returns classes and probabilities
+@patient_bp.route('/detect/raw', methods=['POST'])
+@auth_required
+@patient_required
+def detect_raw():
+    try:
+        img = None
+        if 'image' in request.files:
+            f = request.files['image']
+            img = f.read()
+        else:
+            body = request.get_json(silent=True) or {}
+            img_b64 = body.get('imageBase64')
+            if img_b64:
+                import base64
+                img = base64.b64decode(img_b64)
+
+        if not img:
+            return jsonify({'status': 'error', 'message': 'No image provided'}), 400
+
+        classes, probs = ai_service.predict_proba(img)
+        return jsonify({'status': 'success', 'data': {'classes': classes, 'probs': probs}}), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 400
+
+
+@patient_bp.route('/detect/all', methods=['POST'])
+@auth_required
+@patient_required
+def detect_all():
+    try:
+        img = None
+        if 'image' in request.files:
+            f = request.files['image']
+            img = f.read()
+        else:
+            body = request.get_json(silent=True) or {}
+            img_b64 = body.get('imageBase64')
+            if img_b64:
+                import base64
+                img = base64.b64decode(img_b64)
+
+        if not img:
+            return jsonify({'status': 'error', 'message': 'No image provided'}), 400
+
+        res = ai_service.detect_all(img)
+
+        # find doctors for ensemble_label if present
+        doctors = []
+        try:
+            spec = None
+            # map ensemble label to specialization via ai_service.detect mapping
+            if res.get('ensemble_label'):
+                # call detect() to get specialization for that label
+                det = ai_service.detect(img)
+                spec = det.get('specialization')
+            if spec:
+                doctors = supabase_service.find_doctors_by_specialization(spec)
+        except Exception:
+            doctors = []
+
+        return jsonify({'status': 'success', 'data': {'detection': res, 'doctors': doctors}}), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 400
+
+
 # Get available slots for a doctor on a date
 @appointment_bp.route('/slots', methods=['GET'])
 @auth_required

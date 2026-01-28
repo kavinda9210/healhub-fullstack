@@ -1,0 +1,29 @@
+,Acne,Burns,Cellulitis,Chickenpox,Contact Dermatitis,Diabetic Foot Ulcer,Eczema,Fungal Infection,Herpes Rash,Hives,Impetigo,Pressure Ulcers,Psoriasis
+Acne,0,0,0,0,0,0,0,1,0,0,0,0,0
+Burns,0,0,1,0,0,0,0,0,0,0,0,0,0
+Cellulitis,0,0,1,0,0,0,0,0,0,0,0,0,0
+Chickenpox,1,0,0,0,0,0,0,0,0,2,0,0,0
+Contact Dermatitis,0,0,1,0,0,1,1,0,0,1,0,0,0
+Diabetic Foot Ulcer,0,0,2,0,0,0,0,1,0,0,0,0,0
+Eczema,0,0,2,0,0,1,1,0,0,0,0,0,0
+Fungal Infection,1,1,0,0,0,0,0,4,0,0,0,0,1
+Herpes Rash,0,0,0,0,0,0,0,0,0,3,0,0,0
+Hives,0,0,0,0,0,0,0,0,0,1,0,0,0
+Impetigo,0,1,0,0,0,0,0,0,1,0,0,0,0
+Pressure Ulcers,0,0,0,0,0,0,0,0,0,1,0,0,0
+Psoriasis,0,0,0,0,0,0,0,0,1,4,0,0,0
+
+Class,Accuracy
+Acne,0.0
+Burns,0.0
+Cellulitis,1.0
+Chickenpox,0.0
+Contact Dermatitis,0.0
+Diabetic Foot Ulcer,0.0
+Eczema,0.25
+Fungal Infection,0.5714285714285714
+Herpes Rash,0.0
+Hives,1.0
+Impetigo,0.0
+Pressure Ulcers,0.0
+Psoriasis,0.0

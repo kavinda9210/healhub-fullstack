@@ -14,6 +14,8 @@ class AIService:
     def __init__(self):
         # Lazy-load model when available; fallback to stub
         self.model = None
+        self.keras_model = None
+        self.binary_models = {}
         self.classes = None
         self._ready = False
         self._loading_lock = threading.Lock()
@@ -23,6 +25,89 @@ class AIService:
             if self._ready:
                 return
             try:
+                # Try to load a Keras (.h5) model if present
+                from PIL import Image
+                try:
+                    h5_candidates = [f for f in os.listdir(AI_DIR) if f.endswith('.h5')]
+                    # prefer AIWoundAndRashDetector.h5 if present
+                    preferred = 'AIWoundAndRashDetector.h5'
+                    if preferred in h5_candidates:
+                        h5_path = os.path.join(AI_DIR, preferred)
+                    else:
+                        h5_path = os.path.join(AI_DIR, h5_candidates[0]) if h5_candidates else None
+                except Exception:
+                    h5_path = None
+
+                if h5_path and os.path.exists(h5_path):
+                    try:
+                        import json
+                        import numpy as np
+                        from tensorflow.keras.models import load_model
+
+                        keras_model = load_model(h5_path)
+                        self.keras_model = keras_model
+                        self.keras_model_path = h5_path
+
+                        # try to load classes from classes.json if saved during training
+                        classes_file = os.path.join(AI_DIR, 'classes.json')
+                        classes = []
+                        if os.path.exists(classes_file):
+                            try:
+                                with open(classes_file, 'r', encoding='utf-8') as cf:
+                                    classes = json.load(cf)
+                            except Exception:
+                                classes = []
+
+                        # discover classes from dataset folder as fallback
+                        data_dir = os.path.join(AI_DIR, 'dataset', 'train')
+                        if not classes and os.path.isdir(data_dir):
+                            classes = sorted([d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))])
+
+                        self.classes = classes
+                        self.model = None
+                        print(f'Keras model loaded from: {h5_path}')
+                        print(f'Classes set to: {self.classes}')
+                        # try to load any binary one-vs-rest models too
+                        try:
+                            from tensorflow.keras.models import load_model as _load_model_fn
+                            bin_models = {}
+                            for fn in os.listdir(AI_DIR):
+                                if fn.startswith('AIWoundAndRashDetector_binary_') and fn.endswith('.h5'):
+                                    clsname = fn[len('AIWoundAndRashDetector_binary_'):-3].replace('_', ' ')
+                                    bin_path = os.path.join(AI_DIR, fn)
+                                    try:
+                                        bm = _load_model_fn(bin_path)
+                                        bin_models[clsname] = (bm, 180)
+                                    except Exception:
+                                        # fallback: rebuild architecture and load weights
+                                        try:
+                                            from tensorflow import keras as _keras
+                                            base = _keras.applications.MobileNetV2(weights='imagenet', include_top=False, pooling='avg', input_shape=(180,180,3))
+                                            base.trainable = False
+                                            inp = _keras.Input(shape=(180,180,3))
+                                            x = _keras.applications.mobilenet_v2.preprocess_input(inp)
+                                            x = base(x, training=False)
+                                            x = _keras.layers.Dense(128, activation='relu')(x)
+                                            x = _keras.layers.Dropout(0.3)(x)
+                                            out = _keras.layers.Dense(1, activation='sigmoid')(x)
+                                            bm = _keras.Model(inp, out)
+                                            bm.load_weights(bin_path)
+                                            bin_models[clsname] = (bm, 180)
+                                        except Exception:
+                                            # skip if cannot load
+                                            pass
+                            self.binary_models = bin_models
+                            if self.binary_models:
+                                print('Loaded binary models for classes:', list(self.binary_models.keys()))
+                        except Exception:
+                            pass
+                        self._ready = True
+                        return
+                    except Exception as e:
+                        # if keras load fails, continue to try torch
+                        print('Keras model load failed:', e)
+                        self.keras_model = None
+
                 import torch
                 from torchvision import transforms, models
                 from PIL import Image
@@ -56,6 +141,7 @@ class AIService:
                 print('AI model load failed:', e)
                 traceback.print_exc()
                 self.model = None
+                self.keras_model = None
                 self.classes = []
 
             self._ready = True
@@ -90,7 +176,56 @@ class AIService:
 
         # Try model inference if available
         model_used = False
-        if self.model and self.classes:
+        # Prefer Keras model if available
+        if getattr(self, 'keras_model', None) is not None and self.classes is not None:
+            try:
+                import numpy as np
+                from PIL import Image
+                keras = self.keras_model
+
+                img = Image.open(io.BytesIO(image_bytes)).convert('RGB')
+                # determine target size from model input if possible
+                input_shape = getattr(keras, 'input_shape', None)
+                if input_shape and len(input_shape) >= 3:
+                    # shape may be (None, H, W, C) or (None, C, H, W)
+                    if input_shape[1] is None or input_shape[2] is None:
+                        target_size = (224, 224)
+                    else:
+                        target_size = (int(input_shape[1]), int(input_shape[2]))
+                else:
+                    target_size = (224, 224)
+
+                img = img.resize(target_size)
+                arr = np.asarray(img).astype('float32') / 255.0
+                # ensure batch dim
+                if arr.ndim == 3:
+                    arr = np.expand_dims(arr, 0)
+                preds = keras.predict(arr)
+                # convert logits to probabilities using softmax (matches training notebook)
+                try:
+                    import numpy as _np
+                    p = preds[0]
+                    # numerical-stable softmax
+                    e = _np.exp(p - _np.max(p))
+                    probs = e / _np.sum(e)
+                    idx = int(_np.argmax(probs))
+                    confidence = float(probs[idx])
+                except Exception:
+                    # fallback: try simpler handling
+                    try:
+                        idx = int(preds[0].argmax())
+                        confidence = float(preds[0][idx])
+                    except Exception:
+                        idx = 0
+                        confidence = 0.0
+
+                label = self.classes[idx] if self.classes and idx < len(self.classes) else f'Class_{idx}'
+                model_used = True
+            except Exception:
+                label = 'Unknown'
+                confidence = 0.0
+
+        elif self.model and self.classes:
             try:
                 from PIL import Image
                 import torch
@@ -179,6 +314,128 @@ class AIService:
         else:
             t = threading.Thread(target=_run, daemon=True)
             t.start()
+
+    def predict_proba(self, image_bytes: bytes):
+        """Return (classes, probs) where probs is a list of probabilities matching classes order.
+
+        Returns ([], []) if no model available.
+        """
+        if not self._ready:
+            self._load_model()
+
+        # Keras path
+        if getattr(self, 'keras_model', None) is not None and self.classes is not None:
+            try:
+                import numpy as np
+                from PIL import Image
+                keras = self.keras_model
+
+                img = Image.open(io.BytesIO(image_bytes)).convert('RGB')
+                # determine target size from model input if possible
+                input_shape = getattr(keras, 'input_shape', None)
+                if input_shape and len(input_shape) >= 3:
+                    if input_shape[1] is None or input_shape[2] is None:
+                        target_size = (180, 180)
+                    else:
+                        target_size = (int(input_shape[1]), int(input_shape[2]))
+                else:
+                    target_size = (180, 180)
+
+                img = img.resize(target_size)
+                arr = np.asarray(img).astype('float32') / 255.0
+                if arr.ndim == 3:
+                    arr = np.expand_dims(arr, 0)
+                preds = keras.predict(arr)
+                p = preds[0]
+                e = np.exp(p - np.max(p))
+                probs = (e / np.sum(e)).tolist()
+                return (self.classes or [], probs)
+            except Exception:
+                return (self.classes or [], [])
+
+        # PyTorch path
+        if self.model and self.classes:
+            try:
+                from PIL import Image
+                import torch
+                from torchvision import transforms
+
+                img = Image.open(io.BytesIO(image_bytes)).convert('RGB')
+                t = transforms.Compose([
+                    transforms.Resize((224, 224)),
+                    transforms.ToTensor(),
+                    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+                ])
+                x = t(img).unsqueeze(0)
+                with torch.no_grad():
+                    out = self.model(x)
+                    probs = torch.nn.functional.softmax(out[0], dim=0).cpu().numpy().tolist()
+                    return (self.classes or [], probs)
+            except Exception:
+                return (self.classes or [], [])
+
+        return ([], [])
+
+    def detect_all(self, image_bytes: bytes, binary_threshold: float = 0.5):
+        """Return combined predictions from the multiclass model and all loaded binary models.
+
+        Result format:
+        {
+            'multiclass': {'classes': [...], 'probs': [...]},
+            'binaries': {'Class Name': prob, ...},
+            'ensemble_label': 'Class',
+            'ensemble_confidence': 0.9
+        }
+        """
+        if not self._ready:
+            self._load_model()
+
+        mc_classes, mc_probs = self.predict_proba(image_bytes)
+
+        binaries = {}
+        for clsname, (bm, img_size) in getattr(self, 'binary_models', {}).items():
+            try:
+                import numpy as _np
+                from PIL import Image as _Image
+                img = _Image.open(io.BytesIO(image_bytes)).convert('RGB')
+                img = img.resize((img_size, img_size))
+                arr = _np.asarray(img).astype('float32')
+                # mobilenet preprocess
+                from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
+                arr = preprocess_input(arr)
+                if arr.ndim == 3:
+                    arr = _np.expand_dims(arr, 0)
+                p = bm.predict(arr)
+                # sigmoid output
+                prob = float(p.reshape(-1)[0])
+                binaries[clsname] = prob
+            except Exception:
+                binaries[clsname] = 0.0
+
+        # determine ensemble: prefer binary with highest prob if above threshold
+        best_bin = None
+        if binaries:
+            best_cls = max(binaries.items(), key=lambda x: x[1])
+            if best_cls[1] >= binary_threshold:
+                best_bin = best_cls
+
+        # fallback to multiclass top-1
+        ensemble_label = None
+        ensemble_confidence = 0.0
+        if best_bin:
+            ensemble_label = best_bin[0]
+            ensemble_confidence = best_bin[1]
+        elif mc_classes and mc_probs:
+            idx = int(__import__('numpy').argmax(mc_probs))
+            ensemble_label = mc_classes[idx]
+            ensemble_confidence = float(mc_probs[idx]) if mc_probs else 0.0
+
+        return {
+            'multiclass': {'classes': mc_classes, 'probs': mc_probs},
+            'binaries': binaries,
+            'ensemble_label': ensemble_label,
+            'ensemble_confidence': ensemble_confidence
+        }
 
 
 ai_service = AIService()

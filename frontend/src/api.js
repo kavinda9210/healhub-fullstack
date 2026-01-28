@@ -83,6 +83,17 @@ export async function detectImageMultipart(token, file) {
   }
 }
 
+export async function detectImageRawMultipart(token, file) {
+  const fd = new FormData();
+  fd.append('image', file)
+  try {
+    const res = await fetch(`${BASE}/api/patient/detect/raw`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd })
+    return await handleResponse(res)
+  } catch (err) {
+    return { status: 'error', message: err.message || 'Network error' }
+  }
+}
+
 export async function detectImageBase64(token, base64) {
   return safeFetch(`${BASE}/api/patient/detect`, { method: 'POST', headers: jsonHeaders(token), body: JSON.stringify({ imageBase64: base64 }) })
 }
