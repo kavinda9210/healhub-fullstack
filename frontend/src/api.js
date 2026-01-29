@@ -65,7 +65,9 @@ export async function uploadProfilePicture(token, file) {
   const fd = new FormData();
   fd.append('image', file)
   try {
-    const res = await fetch(`${BASE}/api/auth/profile-picture`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd })
+    const headers = {}
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    const res = await fetch(`${BASE}/api/auth/profile-picture`, { method: 'POST', headers, body: fd })
     return await handleResponse(res)
   } catch (err) {
     return { status: 'error', message: err.message || 'Network error' }
@@ -76,7 +78,9 @@ export async function detectImageMultipart(token, file) {
   const fd = new FormData();
   fd.append('image', file)
   try {
-    const res = await fetch(`${BASE}/api/patient/detect`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd })
+    const headers = {}
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    const res = await fetch(`${BASE}/api/patient/detect`, { method: 'POST', headers, body: fd })
     return await handleResponse(res)
   } catch (err) {
     return { status: 'error', message: err.message || 'Network error' }
@@ -87,7 +91,9 @@ export async function detectImageAllMultipart(token, file) {
   const fd = new FormData();
   fd.append('image', file)
   try {
-    const res = await fetch(`${BASE}/api/patient/detect/all`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd })
+    const headers = {}
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    const res = await fetch(`${BASE}/api/patient/detect/all`, { method: 'POST', headers, body: fd })
     return await handleResponse(res)
   } catch (err) {
     return { status: 'error', message: err.message || 'Network error' }
@@ -99,7 +105,9 @@ export async function submitFeedbackMultipart(token, file, correctLabel) {
   fd.append('image', file)
   fd.append('correct_label', correctLabel)
   try {
-    const res = await fetch(`${BASE}/api/patient/detect/feedback`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd })
+    const headers = {}
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    const res = await fetch(`${BASE}/api/patient/detect/feedback`, { method: 'POST', headers, body: fd })
     return await handleResponse(res)
   } catch (err) {
     return { status: 'error', message: err.message || 'Network error' }
@@ -110,7 +118,9 @@ export async function detectImageRawMultipart(token, file) {
   const fd = new FormData();
   fd.append('image', file)
   try {
-    const res = await fetch(`${BASE}/api/patient/detect/raw`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd })
+    const headers = {}
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    const res = await fetch(`${BASE}/api/patient/detect/raw`, { method: 'POST', headers, body: fd })
     return await handleResponse(res)
   } catch (err) {
     return { status: 'error', message: err.message || 'Network error' }

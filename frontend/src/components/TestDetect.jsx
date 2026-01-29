@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react'
 import AuthContext from '../AuthContext'
-import { detectImageAllMultipart, submitFeedbackMultipart } from '../api'
+import { detectImageAllMultipart, submitFeedbackMultipart, detectImageRawMultipart } from '../api'
 import { useAlert } from '../AlertContext'
 
 export default function TestDetect(){
@@ -30,14 +30,79 @@ export default function TestDetect(){
       const res = await detectImageAllMultipart(token, file)
       if (res && res.status === 'error'){
         showAlert(res.message || 'Detection failed', 'error')
-        setResult({ error: res.message })
+        setResult(res)
       } else {
-        // show detection
-        setResult(res.data || res)
+        let raw = null
+        try{
+          const rawRes = await detectImageRawMultipart(token, file)
+          if (rawRes && rawRes.status === 'success') raw = rawRes.data
+        }catch(_){ raw = null }
+
+        showAlert('Detection completed', 'success')
+        setResult({ api: res, raw })
       }
     }catch(err){
       showAlert(err.message || 'Network error', 'error')
     }finally{ setLoading(false) }
+  }
+
+  function renderDetection(apiResult, raw){
+    if(!apiResult) return null
+    const det = (apiResult.data && apiResult.data.detection) || apiResult
+    const CONFIDENT_THRESHOLD = 0.8
+
+    const woundSet = new Set(['Diabetic Foot Ulcer','Pressure Ulcers','Burns'])
+    const rashSet = new Set(['Eczema','Fungal Infection','Herpes Rash','Contact Dermatitis','Hives','Psoriasis','Chickenpox','Impetigo','Acne','Cellulitis'])
+
+    let confident = (det.confidence || 0) >= CONFIDENT_THRESHOLD
+    let issueType = 'Unknown'
+    if (det.label && woundSet.has(det.label)) issueType = 'Wound'
+    else if (det.label && rashSet.has(det.label)) issueType = 'Rash'
+
+    return (
+      <div style={{marginTop:12}}>
+        <h4>Detection</h4>
+        {!confident && <div style={{color:'#b36'}}>No clear wound or rash detected (low confidence)</div>}
+        <p><strong>Top label:</strong> {det.label || 'Unknown'}</p>
+        <p><strong>Confidence:</strong> {Math.round((det.confidence||0)*100)}% {confident? '(confident)':''}</p>
+        <p><strong>Type:</strong> {issueType}</p>
+        {det.treatments && (
+          <div>
+            <strong>Treatments:</strong>
+            <ul>{det.treatments.map((t,i)=>(<li key={i}>{t}</li>))}</ul>
+          </div>
+        )}
+        {det.specialization && <p><strong>Specialization:</strong> {det.specialization}</p>}
+
+        {raw && raw.classes && raw.probs && (
+          <div style={{marginTop:8}}>
+            <strong>Top predictions:</strong>
+            <ol>
+              {raw.classes.map((c,i)=>({c, p: raw.probs[i]})).sort((a,b)=>b.p-a.p).slice(0,3).map((it,idx)=>(
+                <li key={idx}>{it.c} — {Math.round(it.p*100)}%</li>
+              ))}
+            </ol>
+            <small>Low top probability implies no clear wound/rash detected.</small>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  function renderDoctors(d){
+    if(!d) return null
+    const docs = d.doctors || []
+    if(!docs.length) return null
+    return (
+      <div style={{marginTop:12}}>
+        <h4>Recommended Doctors</h4>
+        <ul>
+          {docs.map((doc, i)=>(
+            <li key={i}>{doc.name || doc.full_name || doc.email || JSON.stringify(doc)}</li>
+          ))}
+        </ul>
+      </div>
+    )
   }
 
   async function loadClasses(){
