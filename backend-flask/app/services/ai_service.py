@@ -67,46 +67,120 @@ class AIService:
                         self.model = None
                         print(f'Keras model loaded from: {h5_path}')
                         print(f'Classes set to: {self.classes}')
-                        # try to load any binary one-vs-rest models too
+                        # try to load any other .h5 models present in the AI dir
                         try:
                             from tensorflow.keras.models import load_model as _load_model_fn
                             bin_models = {}
+                            other_models = {}
+                            # load every .h5 file; prefer the chosen h5_path as the multiclass model
                             for fn in os.listdir(AI_DIR):
-                                if fn.startswith('AIWoundAndRashDetector_binary_') and fn.endswith('.h5'):
-                                    clsname = fn[len('AIWoundAndRashDetector_binary_'):-3].replace('_', ' ')
-                                    bin_path = os.path.join(AI_DIR, fn)
+                                if not fn.endswith('.h5'):
+                                    continue
+                                fp = os.path.join(AI_DIR, fn)
+                                # skip the multiclass file we've already loaded
+                                if os.path.normpath(fp) == os.path.normpath(h5_path):
+                                    continue
+                                try:
+                                    m = _load_model_fn(fp)
+                                    # try to infer if this is a binary model (single sigmoid output)
+                                    out_shape = getattr(m, 'output_shape', None)
+                                    is_binary = False
                                     try:
-                                        bm = _load_model_fn(bin_path)
-                                        bin_models[clsname] = (bm, 180)
+                                        if out_shape is not None:
+                                            # output_shape may be (None,1) or (None, 1)
+                                            last = out_shape[-1]
+                                            if int(last) == 1:
+                                                is_binary = True
                                     except Exception:
-                                        # fallback: rebuild architecture and load weights
-                                        try:
-                                            from tensorflow import keras as _keras
-                                            base = _keras.applications.MobileNetV2(weights='imagenet', include_top=False, pooling='avg', input_shape=(180,180,3))
-                                            base.trainable = False
-                                            inp = _keras.Input(shape=(180,180,3))
-                                            x = _keras.applications.mobilenet_v2.preprocess_input(inp)
-                                            x = base(x, training=False)
-                                            x = _keras.layers.Dense(128, activation='relu')(x)
-                                            x = _keras.layers.Dropout(0.3)(x)
-                                            out = _keras.layers.Dense(1, activation='sigmoid')(x)
-                                            bm = _keras.Model(inp, out)
-                                            bm.load_weights(bin_path)
-                                            bin_models[clsname] = (bm, 180)
-                                        except Exception:
-                                            # skip if cannot load
-                                            pass
+                                        is_binary = False
+
+                                    # derive a friendly name from filename
+                                    name = fn[:-3].replace('AIWoundAndRashDetector_binary_', '').replace('_', ' ')
+                                    if is_binary:
+                                        bin_models[name] = (m, 180)
+                                    else:
+                                        other_models[name] = (m, None)
+                                except Exception:
+                                    # skip models that fail to load
+                                    continue
+
+                            # merge into service state
                             self.binary_models = bin_models
+                            self.other_models = other_models
                             if self.binary_models:
                                 print('Loaded binary models for classes:', list(self.binary_models.keys()))
+                            if self.other_models:
+                                print('Loaded additional Keras models:', list(self.other_models.keys()))
                         except Exception:
                             pass
                         self._ready = True
                         return
                     except Exception as e:
-                        # if keras load fails, continue to try torch
+                        # if keras load fails, attempt fallback loading strategies
                         print('Keras model load failed:', e)
-                        self.keras_model = None
+                        try:
+                            # try loading with custom_objects mapping for unknown layers (e.g. TrueDivide)
+                            from tensorflow import keras as _keras
+                            def _identity(x):
+                                return x
+                            custom = {'TrueDivide': _keras.layers.Lambda(_identity)}
+                            keras_model = load_model(h5_path, compile=False, custom_objects=custom)
+                            self.keras_model = keras_model
+                            self.keras_model_path = h5_path
+                            # attempt to load classes.json or dataset folders
+                            classes_file = os.path.join(AI_DIR, 'classes.json')
+                            classes = []
+                            if os.path.exists(classes_file):
+                                try:
+                                    with open(classes_file, 'r', encoding='utf-8') as cf:
+                                        classes = json.load(cf)
+                                except Exception:
+                                    classes = []
+                            data_dir = os.path.join(AI_DIR, 'dataset', 'train')
+                            if not classes and os.path.isdir(data_dir):
+                                classes = sorted([d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))])
+                            self.classes = classes
+                            self.model = None
+                            print(f'Keras model loaded with custom_objects from: {h5_path}')
+                        except Exception:
+                            # final fallback: rebuild a MobileNetV2 head and try to load weights
+                            try:
+                                from tensorflow import keras as _keras
+                                # attempt to discover classes before building
+                                classes_file = os.path.join(AI_DIR, 'classes.json')
+                                classes = []
+                                if os.path.exists(classes_file):
+                                    try:
+                                        with open(classes_file, 'r', encoding='utf-8') as cf:
+                                            classes = json.load(cf)
+                                    except Exception:
+                                        classes = []
+                                data_dir = os.path.join(AI_DIR, 'dataset', 'train')
+                                if not classes and os.path.isdir(data_dir):
+                                    classes = sorted([d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))])
+                                num_classes = len(classes) if classes else None
+
+                                base = _keras.applications.MobileNetV2(weights='imagenet', include_top=False, pooling='avg', input_shape=(180,180,3))
+                                base.trainable = False
+                                inp = _keras.Input(shape=(180,180,3))
+                                x = _keras.applications.mobilenet_v2.preprocess_input(inp)
+                                x = base(x, training=False)
+                                x = _keras.layers.GlobalAveragePooling2D()(x)
+                                x = _keras.layers.Dropout(0.3)(x)
+                                if num_classes and num_classes > 0:
+                                    out = _keras.layers.Dense(num_classes)(x)
+                                else:
+                                    out = _keras.layers.Dense(13)(x)
+                                bm = _keras.Model(inp, out)
+                                bm.load_weights(h5_path)
+                                self.keras_model = bm
+                                self.keras_model_path = h5_path
+                                self.classes = classes
+                                self.model = None
+                                print('Rebuilt architecture and loaded weights from:', h5_path)
+                            except Exception:
+                                print('Fallback weight-load also failed for:', h5_path)
+                                self.keras_model = None
 
                 import torch
                 from torchvision import transforms, models
@@ -412,6 +486,51 @@ class AIService:
             except Exception:
                 binaries[clsname] = 0.0
 
+        # run any additional loaded Keras models (non-binary) and collect their top predictions
+        others = {}
+        for name, (m, img_size) in getattr(self, 'other_models', {}).items():
+            try:
+                import numpy as _np
+                from PIL import Image as _Image
+                img = _Image.open(io.BytesIO(image_bytes)).convert('RGB')
+                # infer target size
+                if img_size:
+                    target = (img_size, img_size)
+                else:
+                    input_shape = getattr(m, 'input_shape', None)
+                    if input_shape and len(input_shape) >= 3:
+                        try:
+                            h = int(input_shape[1]) if input_shape[1] else 224
+                            w = int(input_shape[2]) if input_shape[2] else h
+                        except Exception:
+                            h = w = 224
+                    else:
+                        h = w = 224
+                    target = (w, h)
+                img = img.resize(target)
+                arr = _np.asarray(img).astype('float32')
+                # try using mobilenet preprocess if available, otherwise normalize
+                try:
+                    from tensorflow.keras.applications.mobilenet_v2 import preprocess_input as _pre
+                    arr = _pre(arr)
+                except Exception:
+                    arr = arr / 255.0
+                if arr.ndim == 3:
+                    arr = _np.expand_dims(arr, 0)
+                preds = m.predict(arr)
+                p = preds[0]
+                # if single-dim output treat as binary
+                if getattr(p, 'shape', None) and (len(p.shape) == 0 or p.shape[-1] == 1):
+                    prob = float(p.reshape(-1)[0])
+                    others[name] = {'type': 'binary', 'prob': prob}
+                else:
+                    e = _np.exp(p - _np.max(p))
+                    probs = (e / _np.sum(e)).tolist()
+                    top_idx = int(_np.argmax(probs))
+                    others[name] = {'type': 'multiclass', 'probs': probs, 'top_idx': top_idx, 'top_prob': float(probs[top_idx])}
+            except Exception:
+                others[name] = {'error': 'failed'}
+
         # determine ensemble: prefer binary with highest prob if above threshold
         best_bin = None
         if binaries:
@@ -433,6 +552,7 @@ class AIService:
         return {
             'multiclass': {'classes': mc_classes, 'probs': mc_probs},
             'binaries': binaries,
+            'others': others,
             'ensemble_label': ensemble_label,
             'ensemble_confidence': ensemble_confidence
         }

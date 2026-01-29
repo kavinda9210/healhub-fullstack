@@ -344,6 +344,93 @@ def detect_all():
         return jsonify({'status': 'error', 'message': str(e)}), 400
 
 
+# Feedback / correction endpoint: accept image + correct_label, add to dataset and retrain (small run)
+@patient_bp.route('/detect/feedback', methods=['POST'])
+@auth_required
+@patient_required
+def detect_feedback():
+    try:
+        img = None
+        label = None
+        if 'image' in request.files:
+            f = request.files['image']
+            img = f.read()
+        else:
+            body = request.get_json(silent=True) or {}
+            img_b64 = body.get('imageBase64')
+            label = body.get('correctLabel') or body.get('correct_label')
+            if img_b64:
+                import base64
+                img = base64.b64decode(img_b64)
+
+        # label might be in form field
+        if not label and 'correct_label' in request.form:
+            label = request.form.get('correct_label')
+        if not label and 'correctLabel' in request.form:
+            label = request.form.get('correctLabel')
+
+        if not img or not label:
+            return jsonify({'status': 'error', 'message': 'image and correct_label required'}), 400
+
+        # save image to dataset/train/<label>/ with unique name
+        import os, uuid
+        base = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'AIWoundOrrashDettector')
+        save_dir = os.path.join(base, 'dataset', 'train', label)
+        os.makedirs(save_dir, exist_ok=True)
+        fname = f'user_correct_{uuid.uuid4().hex}.jpg'
+        fpath = os.path.join(save_dir, fname)
+        with open(fpath, 'wb') as wf:
+            wf.write(img)
+
+        # run a short transfer training synchronously (small epochs)
+        try:
+            import subprocess, sys, shutil
+            tools_py = os.path.join(os.path.dirname(base), 'tools', 'transfer_train.py')
+            # call using the same python executable
+            proc = subprocess.run([sys.executable, tools_py], cwd=os.path.dirname(base), capture_output=True, text=True)
+            # transfer_train.py by default writes AIWoundAndRashDetector_mobilenet.h5 —
+            # copy it to the preferred filename so the service picks it up
+            gen = os.path.join(base, 'AIWoundAndRashDetector_mobilenet.h5')
+            preferred = os.path.join(base, 'AIWoundAndRashDetector.h5')
+            try:
+                if os.path.exists(gen):
+                    shutil.copyfile(gen, preferred)
+            except Exception:
+                # ignore copy errors, continue to attempt reload
+                pass
+
+            # reload models in service
+            try:
+                ai_service._ready = False
+                ai_service._load_model()
+            except Exception:
+                pass
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': f'retraining failed: {str(e)}'}), 500
+
+        # check whether model reloaded successfully
+        reload_ok = getattr(ai_service, 'keras_model', None) is not None or getattr(ai_service, 'model', None) is not None
+        # run detection again on same image (may fall back to stub)
+        try:
+            new_res = ai_service.detect_all(img)
+        except Exception as e:
+            new_res = {'error': str(e)}
+
+        out = {
+            'retrain_stdout': proc.stdout if 'proc' in locals() else '',
+            'retrain_stderr': proc.stderr if 'proc' in locals() else '',
+            'detection_after_retrain': new_res,
+            'model_reloaded': bool(reload_ok)
+        }
+
+        if not reload_ok:
+            return jsonify({'status': 'error', 'message': 'Retrain completed but model failed to reload; see retrain_stderr', 'data': out}), 500
+
+        return jsonify({'status': 'success', 'data': out}), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 400
+
+
 # Get available slots for a doctor on a date
 @appointment_bp.route('/slots', methods=['GET'])
 @auth_required

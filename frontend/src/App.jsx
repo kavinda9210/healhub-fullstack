@@ -10,6 +10,7 @@ import ForgotPassword from './components/ForgotPassword'
 import ResetPassword from './components/ResetPassword'
 import Profile from './components/Profile'
 import Detect from './components/Detect'
+import TestDetect from './components/TestDetect'
 import Appointments from './components/Appointments'
 import Reminders from './components/Reminders'
 import AdminUsers from './components/AdminUsers'
@@ -26,6 +27,7 @@ function Nav() {
       {!token && <Link to="/forgot-password">Forgot Password</Link>}
       {token && <Link to="/profile">Profile</Link>}
       {token && <Link to="/detect">Detect</Link>}
+      {token && <Link to="/test-detect">Test Detect</Link>}
       {token && <Link to="/appointments">Appointments</Link>}
       {token && <Link to="/reminders">Reminders</Link>}
       {token && <Link to="/admin/users">Admin</Link>}
@@ -73,6 +75,7 @@ function AppInner(){
         <Route path="/verify-email" element={<VerifyEmail/>} />
         <Route path="/profile" element={<Profile/>} />
         <Route path="/detect" element={<Detect/>} />
+        <Route path="/test-detect" element={<TestDetect/>} />
         <Route path="/appointments" element={<Appointments/>} />
         <Route path="/reminders" element={<Reminders/>} />
         <Route path="/admin/users" element={<AdminUsers/>} />

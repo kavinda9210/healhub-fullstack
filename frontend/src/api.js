@@ -83,6 +83,29 @@ export async function detectImageMultipart(token, file) {
   }
 }
 
+export async function detectImageAllMultipart(token, file) {
+  const fd = new FormData();
+  fd.append('image', file)
+  try {
+    const res = await fetch(`${BASE}/api/patient/detect/all`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd })
+    return await handleResponse(res)
+  } catch (err) {
+    return { status: 'error', message: err.message || 'Network error' }
+  }
+}
+
+export async function submitFeedbackMultipart(token, file, correctLabel) {
+  const fd = new FormData();
+  fd.append('image', file)
+  fd.append('correct_label', correctLabel)
+  try {
+    const res = await fetch(`${BASE}/api/patient/detect/feedback`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd })
+    return await handleResponse(res)
+  } catch (err) {
+    return { status: 'error', message: err.message || 'Network error' }
+  }
+}
+
 export async function detectImageRawMultipart(token, file) {
   const fd = new FormData();
   fd.append('image', file)
