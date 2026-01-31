@@ -1,8 +1,0 @@
-metric,value
-examples,36
-accuracy,0.25
-auc,0.0
-cm_00,9
-cm_01,27
-cm_10,0
-cm_11,0
